@@ -159,7 +159,7 @@ class ToTensor(object):
 
     def __call__(self, sample):
         image, pose = sample['image'], sample['pose']
-		# todo: support heatmap
+        # todo: support heatmap
         # guass_heatmap = sample['guass_heatmap']
         h, w = image.shape[:2]
 
@@ -170,8 +170,8 @@ class ToTensor(object):
         image = torch.from_numpy(image.transpose((2, 0, 1))).float()
         pose = torch.from_numpy(pose).float()
 
-		# todo: support heatmap
-	    # guass_heatmap = torch.from_numpy(guass_heatmap).float()
+        # todo: support heatmap
+        # guass_heatmap = torch.from_numpy(guass_heatmap).float()
         return {'image': image,
                 'pose': pose}
         #return {'image': image,
@@ -208,6 +208,45 @@ class PoseDataset(Dataset):
         if self.transform:
             sample = self.transform(sample)
         return sample
+
+
+class DetectionDataset(Dataset):
+    def __init__(self, root_dir, transform=None):
+        self.root_dir = root_dir
+        self.image_list = os.listdir(root_dir)
+        self.image_num = len(self.image_list)
+        self.transform = transform
+        self.output_size = (224, 224)
+
+    def __len__(self):
+        return self.image_num
+
+    def __getitem__(self, idx):
+        image = io.imread(os.path.join(self.root_dir, self.image_list[idx]))
+
+        image = image/256.0
+        h, w = image.shape[:2]
+        im_scale = min(float(self.output_size[0]) / float(h), float(self.output_size[1]) / float(w))
+        new_h = int(image.shape[0] * im_scale)
+        new_w = int(image.shape[1] * im_scale)
+        image = cv2.resize(image, (new_w, new_h),
+                           interpolation=cv2.INTER_LINEAR)
+        left_pad = (self.output_size[1] - new_w) // 2
+        right_pad = (self.output_size[1] - new_w) - left_pad
+        top_pad = (self.output_size[0] - new_h) // 2
+        bottom_pad = (self.output_size[0] - new_h) - top_pad
+        mean = np.array([0.485, 0.456, 0.406])
+        pad = ((top_pad, bottom_pad), (left_pad, right_pad))
+        image = np.stack([np.pad(image[:, :, c], pad, mode='constant', constant_values=mean[c])
+                         for c in range(3)], axis=2)
+
+        mean = np.array([0.485, 0.456, 0.406])
+        std = np.array([0.229, 0.224, 0.225])
+
+        image[:, :, :3] = (image[:, :, :3]-mean)/(std)
+        image = torch.from_numpy(image.transpose((2, 0, 1))).float()
+
+        return image
 
 
 import imgaug as ia
