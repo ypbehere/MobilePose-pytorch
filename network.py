@@ -11,11 +11,11 @@ Copyright 2018 - 2019 Shanghai Jiao Tong University, Machine Vision and Intellig
 '''
 
 
-
+import torch
 from networks import *
 from networks.senet import se_resnet
 import torch.nn as nn
-import dsntnn
+from dsnt import dsnt, flat_softmax, calc_variance
 
 class CoordRegressionNetwork(nn.Module):
     def __init__(self, n_locations, backbone):
@@ -53,9 +53,12 @@ class CoordRegressionNetwork(nn.Module):
         resnet_out = self.resnet(images)
         # 2. Use a 1x1 conv to get one unnormalized heatmap per location
         unnormalized_heatmaps = self.hm_conv(resnet_out)
+        # max_value = torch.max(torch.max(unnormalized_heatmaps[0], dim=1)[0], dim=1)
+        # print('max_value', max_value)
         # 3. Normalize the heatmaps
-        heatmaps = dsntnn.flat_softmax(unnormalized_heatmaps)
+        heatmaps = flat_softmax(unnormalized_heatmaps)
+        var = calc_variance(heatmaps)
         # 4. Calculate the coordinates
-        coords = dsntnn.dsnt(heatmaps)
+        coords = dsnt(heatmaps)
 
-        return coords, heatmaps
+        return coords, heatmaps, var

@@ -12,7 +12,7 @@ from network import CoordRegressionNetwork
 from torch.utils.data import DataLoader
 
 
-def display_pose(img, pose):
+def display_pose(img, pose, var):
     # mean=np.array([0.485, 0.456, 0.406])
     # std=np.array([0.229, 0.224, 0.225])
     pose = pose.data.cpu().numpy()
@@ -26,53 +26,53 @@ def display_pose(img, pose):
 
     part_line = {}
     for n in range(pose.shape[0]):
+        if var[n][0] > 0.01 or var[n][1] > 0.01:
+            continue
         cor_x, cor_y = int(pose[n, 0]), int(pose[n, 1])
         part_line[n] = (int(cor_x), int(cor_y))
         bg = img.copy()
-        cv2.circle(bg, (int(cor_x), int(cor_y)), 2, color, -1)
+        cv2.circle(bg, (int(cor_x), int(cor_y)), 5, color, -1)
         # Now create a mask of logo and create its inverse mask also
         transparency = 0.9
         img = cv2.addWeighted(bg, transparency, img, 1-transparency, 0)
 
-    for i, (start_p, end_p) in enumerate(pairs):
-        if start_p in part_line and end_p in part_line:
-            start_xy = part_line[start_p]
-            end_xy = part_line[end_p]
-            bg = img.copy()
+    # for i, (start_p, end_p) in enumerate(pairs):
+    #     if start_p in part_line and end_p in part_line:
+    #         start_xy = part_line[start_p]
+    #         end_xy = part_line[end_p]
+    #         bg = img.copy()
 
-            X = (start_xy[0], end_xy[0])
-            Y = (start_xy[1], end_xy[1])
-            mX = np.mean(X)
-            mY = np.mean(Y)
-            length = ((Y[0] - Y[1]) ** 2 + (X[0] - X[1]) ** 2) ** 0.5
-            angle = math.degrees(math.atan2(Y[0] - Y[1], X[0] - X[1]))
-            stickwidth = 3
-            polygon = cv2.ellipse2Poly((int(mX), int(mY)), (int(length/2), stickwidth), int(angle), 0, 360, 1)
-            cv2.fillConvexPoly(bg, polygon, color)
-            # cv2.line(bg, start_xy, end_xy, line_color[i], (2 * (kp_scores[start_p] + kp_scores[end_p])) + 1)
-            transparency = 0.9
-            img = cv2.addWeighted(bg, transparency, img, 1-transparency, 0)
+    #         X = (start_xy[0], end_xy[0])
+    #         Y = (start_xy[1], end_xy[1])
+    #         mX = np.mean(X)
+    #         mY = np.mean(Y)
+    #         length = ((Y[0] - Y[1]) ** 2 + (X[0] - X[1]) ** 2) ** 0.5
+    #         angle = math.degrees(math.atan2(Y[0] - Y[1], X[0] - X[1]))
+    #         stickwidth = 3
+    #         polygon = cv2.ellipse2Poly((int(mX), int(mY)), (int(length/2), stickwidth), int(angle), 0, 360, 1)
+    #         cv2.fillConvexPoly(bg, polygon, color)
+    #         # cv2.line(bg, start_xy, end_xy, line_color[i], (2 * (kp_scores[start_p] + kp_scores[end_p])) + 1)
+    #         transparency = 0.9
+    #         img = cv2.addWeighted(bg, transparency, img, 1-transparency, 0)
 
     img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
     return img
 
 
-def do_detect(test_data, modelname, net_path):
+def do_detect(test_data, model):
         """
         Example:
         eval_coco('/home/yuliang/code/PoseFlow/checkpoint140.t7',
         'result-gt-json.txt', 'result-pred-json.txt')
         """
 
-        net = CoordRegressionNetwork(n_locations=16, backbone=modelname)
-        net.load_state_dict(torch.load(net_path, map_location='cpu'))
-        net = net.eval()
         image, origin_image = test_data
 
         with torch.no_grad():
-            coords, heatmaps = net(image)
+            coords, heatmaps, var = model(image)
 
-        result = display_pose(origin_image[0], coords[0])
+        result = None
+        # result = display_pose(origin_image[0], coords[0], var[0])
 
         return (result, coords[0])
 
@@ -97,14 +97,17 @@ if __name__ == '__main__':
 
     test_dataset = VideoDataset(args.test_dir)
     fps, frame_size = test_dataset.video_info()
-    data_writer = DataWriter(args.save_video, args.save_path, fps=fps, frame_size=frame_size)
+    # data_writer = DataWriter(args.save_video, args.save_path, fps=fps, frame_size=frame_size)
 
     test_dataloader = DataLoader(test_dataset, batch_size=1, shuffle=False)
 
+    net = CoordRegressionNetwork(n_locations=16, backbone=modelname)
+    net.load_state_dict(torch.load(modelpath, map_location='cpu'))
+    net = net.eval()
     # get all test data
     all_test_data = {}
     for i_batch, data in enumerate(tqdm(test_dataloader)):
-        result, coords = do_detect(data, modelname, modelpath)
-        data_writer.save(result, coords)
+        result, coords = do_detect(data, net)
+        # data_writer.save(result, coords)
 
-    data_writer.stop()
+    # data_writer.stop()

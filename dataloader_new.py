@@ -28,14 +28,14 @@ class ImageDataset(Dataset):
         new_w = int(image.shape[1] * im_scale)
         image = cv2.resize(image, (new_w, new_h),
                            interpolation=cv2.INTER_LINEAR)
-        left_pad = (self.output_size[1] - new_w) // 2
-        right_pad = (self.output_size[1] - new_w) - left_pad
-        top_pad = (self.output_size[0] - new_h) // 2
-        bottom_pad = (self.output_size[0] - new_h) - top_pad
-        mean = np.array([0.485, 0.456, 0.406])
-        pad = ((top_pad, bottom_pad), (left_pad, right_pad))
-        image = np.stack([np.pad(image[:, :, c], pad, mode='constant', constant_values=mean[c])
-                         for c in range(3)], axis=2)
+        # left_pad = (self.output_size[1] - new_w) // 2
+        # right_pad = (self.output_size[1] - new_w) - left_pad
+        # top_pad = (self.output_size[0] - new_h) // 2
+        # bottom_pad = (self.output_size[0] - new_h) - top_pad
+        # mean = np.array([0.485, 0.456, 0.406])
+        # pad = ((top_pad, bottom_pad), (left_pad, right_pad))
+        # image = np.stack([np.pad(image[:, :, c], pad, mode='constant', constant_values=mean[c])
+        #                  for c in range(3)], axis=2)
 
         mean = np.array([0.485, 0.456, 0.406])
         std = np.array([0.229, 0.224, 0.225])
