@@ -6,7 +6,7 @@ import math
 import argparse
 
 import torch
-from dataloader_new import ImageDataset, VideoDataset, DataWriter
+from dataloader_new import ImageDataset, VideoDataset, DataWriter, VideoCuttingDataset
 from network import CoordRegressionNetwork
 
 from torch.utils.data import DataLoader

@@ -99,6 +99,92 @@ class VideoDataset(Dataset):
         return (self.fps, self.frame_size)
 
 
+cut_seconds = [(0, 5),
+               (40, 45),
+               (75, 95),
+               (185, 200),
+               (295, 315),
+               (340, 350),
+               (420, 430),
+               (440, 445),
+               (530, 535),
+               (585, 590),
+               (630, 640),
+               (730, 740),
+               (765, 770),
+               (800, 805)]
+
+
+class VideoCuttingDataset(Dataset):
+    def __init__(self, video_dir):
+        super(VideoCuttingDataset, self).__init__()
+        self.video_dir = video_dir
+        stream = cv2.VideoCapture(self.video_dir)
+        assert stream.isOpened(), 'ERROR: Cannot capture source'
+        self.fps = int(stream.get(cv2.CAP_PROP_FPS))
+        self.data_len = int(stream.get(cv2.CAP_PROP_FRAME_COUNT))
+        self.frame_size = (int(stream.get(cv2.CAP_PROP_FRAME_WIDTH)), int(stream.get(cv2.CAP_PROP_FRAME_HEIGHT)))
+        self.total_time = self.data_len / self.fps
+        assert abs(total_time - 830) < 20, 'ERROR: Video time should be adjusted'
+        self.output_size = (256, 256)
+
+        self.frames = []
+        cut_idx = 0
+        lower_bound = cut_seconds[cut_idx][0] * fps
+        upper_bound = cut_seconds[cut_idx][1] * fps
+        print('Cutting', cut_idx, 'Started')
+        for i in range(num_frames):
+            success, frame = stream.read()
+            if i >= lower_bound:
+                self.frames.append(frame)
+            if i == upper_bound:
+                cut_idx += 1
+                if cut_idx == 14:
+                    print('Cutting finished')
+                    break
+
+                lower_bound = cut_seconds[cut_idx][0] * fps
+                upper_bound = cut_seconds[cut_idx][1] * fps
+                print('Cutting', cut_idx, 'Started')
+
+        print('Finish Loading, {} frames in total'.format(self.data_len))
+        stream.release()
+
+    def __len__(self):
+        return self.data_len // 5
+
+    def __getitem__(self, idx):
+        origin_image = self.frames[idx * 5]
+        origin_image = cv2.cvtColor(origin_image, cv2.COLOR_BGR2RGB)
+
+        image = origin_image/256.0
+        h, w = image.shape[:2]
+        im_scale = min(float(self.output_size[0]) / float(h), float(self.output_size[1]) / float(w))
+        new_h = int(image.shape[0] * im_scale)
+        new_w = int(image.shape[1] * im_scale)
+        image = cv2.resize(image, (new_w, new_h),
+                           interpolation=cv2.INTER_LINEAR)
+        left_pad = (self.output_size[1] - new_w) // 2
+        right_pad = (self.output_size[1] - new_w) - left_pad
+        top_pad = (self.output_size[0] - new_h) // 2
+        bottom_pad = (self.output_size[0] - new_h) - top_pad
+        mean = np.array([0.485, 0.456, 0.406])
+        pad = ((top_pad, bottom_pad), (left_pad, right_pad))
+        image = np.stack([np.pad(image[:, :, c], pad, mode='constant', constant_values=mean[c])
+                         for c in range(3)], axis=2)
+
+        mean = np.array([0.485, 0.456, 0.406])
+        std = np.array([0.229, 0.224, 0.225])
+
+        image[:, :, :3] = (image[:, :, :3]-mean)/(std)
+        image = torch.from_numpy(image.transpose((2, 0, 1))).float()
+
+        return (image, origin_image)
+
+    def video_info(self):
+        return (self.fps, self.frame_size)
+
+
 class DataWriter(object):
     def __init__(self, save_video=False, save_path='./result',
                  fourcc=cv2.VideoWriter_fourcc(*'XVID'), fps=25, frame_size=(256, 256)):
