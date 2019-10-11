@@ -3,7 +3,8 @@ import cv2
 import torch
 import numpy as np
 from skimage import io
-from torch.utils.data import Dataset
+from collections import defaultdict
+from torch.utils.data import Dataset, DataLoader
 
 
 class ImageDataset(Dataset):
@@ -99,62 +100,80 @@ class VideoDataset(Dataset):
         return (self.fps, self.frame_size)
 
 
-cut_seconds = [(0, 5),
-               (40, 45),
-               (75, 95),
-               (185, 200),
-               (295, 315),
-               (340, 350),
-               (420, 430),
-               (440, 445),
-               (530, 535),
-               (585, 590),
-               (630, 640),
-               (730, 740),
-               (765, 770),
-               (800, 805)]
+cut_seconds = [(0, 5),  # 1_1
+               (40, 45),  # 1_2
+               (110, 125),  # 2_1
+               (210, 225),  # 3_1
+               (330, 335),  # 4_1
+               (345, 350),  # 4_2
+               (430, 440),  # 5_1
+               (450, 455),  # 5_2
+               (550, 555),  # 6_1
+               (585, 590),  # 6_2
+               (675, 685),  # 7_1
+               (695, 705),  # 7_2
+               (765, 770),  # 8_1
+               (800, 805)]  # 8_2
+
+
+def prepare_cutting_dataloaders(video_dir):
+    video_dir = video_dir
+    stream = cv2.VideoCapture(video_dir)
+    assert stream.isOpened(), 'ERROR: Cannot capture source'
+    fps = int(stream.get(cv2.CAP_PROP_FPS))
+    data_len = int(stream.get(cv2.CAP_PROP_FRAME_COUNT))
+    frame_size = (int(stream.get(cv2.CAP_PROP_FRAME_WIDTH)), int(stream.get(cv2.CAP_PROP_FRAME_HEIGHT)))
+    total_time = data_len / fps
+    assert abs(total_time - 830) < 20, 'ERROR: Video time should be adjusted'
+
+    frame_groups = []
+    frame_group = []
+    cut_idx = 0
+    lower_bound = cut_seconds[cut_idx][0] * fps
+    upper_bound = cut_seconds[cut_idx][1] * fps
+    print('Cutting', cut_idx, 'Started')
+    for i in range(data_len):
+        success, frame = stream.read()
+        if i >= lower_bound and i % 5 == 0:
+            frame_group.append(frame)
+        if i >= upper_bound:
+            frame_groups.append(frame_group)
+            frame_group = []
+            cut_idx += 1
+            if cut_idx == 14:
+                print('Cutting finished')
+                break
+
+            lower_bound = cut_seconds[cut_idx][0] * fps
+            upper_bound = cut_seconds[cut_idx][1] * fps
+            print('Cutting', cut_idx, 'Started')
+
+    stream.release()
+
+    frame_dataloaders = []
+    total_frames = 0
+    for frame_group in frame_groups:
+        frame_dataset = VideoCuttingDataset(frame_group)
+        total_frames += frame_dataset.num_frames
+        frame_dataloader = DataLoader(frame_dataset, batch_size=1, shuffle=False)
+        frame_dataloaders.append(frame_dataloader)
+
+    print('Finish Loading, {} frames in total'.format(total_frames))
+
+    return frame_dataloaders, fps, frame_size
 
 
 class VideoCuttingDataset(Dataset):
-    def __init__(self, video_dir):
-        super(VideoCuttingDataset, self).__init__()
-        self.video_dir = video_dir
-        stream = cv2.VideoCapture(self.video_dir)
-        assert stream.isOpened(), 'ERROR: Cannot capture source'
-        self.fps = int(stream.get(cv2.CAP_PROP_FPS))
-        self.data_len = int(stream.get(cv2.CAP_PROP_FRAME_COUNT))
-        self.frame_size = (int(stream.get(cv2.CAP_PROP_FRAME_WIDTH)), int(stream.get(cv2.CAP_PROP_FRAME_HEIGHT)))
-        self.total_time = self.data_len / self.fps
-        assert abs(total_time - 830) < 20, 'ERROR: Video time should be adjusted'
+    def __init__(self, frames):
+        self.frames = frames
+        self.num_frames = len(frames)
         self.output_size = (256, 256)
 
-        self.frames = []
-        cut_idx = 0
-        lower_bound = cut_seconds[cut_idx][0] * fps
-        upper_bound = cut_seconds[cut_idx][1] * fps
-        print('Cutting', cut_idx, 'Started')
-        for i in range(num_frames):
-            success, frame = stream.read()
-            if i >= lower_bound:
-                self.frames.append(frame)
-            if i == upper_bound:
-                cut_idx += 1
-                if cut_idx == 14:
-                    print('Cutting finished')
-                    break
-
-                lower_bound = cut_seconds[cut_idx][0] * fps
-                upper_bound = cut_seconds[cut_idx][1] * fps
-                print('Cutting', cut_idx, 'Started')
-
-        print('Finish Loading, {} frames in total'.format(self.data_len))
-        stream.release()
-
     def __len__(self):
-        return self.data_len // 5
+        return self.num_frames
 
     def __getitem__(self, idx):
-        origin_image = self.frames[idx * 5]
+        origin_image = self.frames[idx]
         origin_image = cv2.cvtColor(origin_image, cv2.COLOR_BGR2RGB)
 
         image = origin_image/256.0
@@ -180,9 +199,6 @@ class VideoCuttingDataset(Dataset):
         image = torch.from_numpy(image.transpose((2, 0, 1))).float()
 
         return (image, origin_image)
-
-    def video_info(self):
-        return (self.fps, self.frame_size)
 
 
 class DataWriter(object):

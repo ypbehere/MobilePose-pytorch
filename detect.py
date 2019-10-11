@@ -6,7 +6,7 @@ import math
 import argparse
 
 import torch
-from dataloader_new import ImageDataset, VideoDataset, DataWriter, VideoCuttingDataset
+from dataloader_new import ImageDataset, VideoDataset, DataWriter, prepare_cutting_datasets
 from network import CoordRegressionNetwork
 
 from torch.utils.data import DataLoader
@@ -97,7 +97,7 @@ if __name__ == '__main__':
 
     test_dataset = VideoDataset(args.test_dir)
     fps, frame_size = test_dataset.video_info()
-    # data_writer = DataWriter(args.save_video, args.save_path, fps=fps, frame_size=frame_size)
+    data_writer = DataWriter(args.save_video, args.save_path, fps=fps, frame_size=frame_size)
 
     test_dataloader = DataLoader(test_dataset, batch_size=1, shuffle=False)
 
@@ -108,6 +108,6 @@ if __name__ == '__main__':
     all_test_data = {}
     for i_batch, data in enumerate(tqdm(test_dataloader)):
         result, coords = do_detect(data, net)
-        # data_writer.save(result, coords)
+        data_writer.save(result, coords)
 
-    # data_writer.stop()
+    data_writer.stop()
