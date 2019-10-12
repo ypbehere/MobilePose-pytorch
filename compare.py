@@ -1,3 +1,4 @@
+import json
 import torch
 import argparse
 from tqdm import tqdm
@@ -30,9 +31,11 @@ if __name__ == '__main__':
     net = net.eval()
 
     for index, test_dataloader in enumerate(test_dataloaders):
+        index_result = []
         for i_batch, data in enumerate(tqdm(test_dataloader)):
             image, origin_image = data
             with torch.no_grad():
                 coords, _, var = net(image)
-                print(coords, var)
-                assert 1 == 0
+                index_result.append((coords, var))
+        index_template = json.load(open('templates/alphapose-results-{}.json'.format(index+1)))
+        assert len(index_result) == len(index_template), 'ERROR: Not aligned with template'
