@@ -6,7 +6,7 @@ import math
 import argparse
 
 import torch
-from dataloader_new import ImageDataset, VideoDataset, DataWriter, prepare_cutting_datasets
+from dataloader_new import ImageDataset, VideoDataset, DataWriter, prepare_cutting_dataloaders
 from network import CoordRegressionNetwork
 
 from torch.utils.data import DataLoader
@@ -22,6 +22,7 @@ def display_pose(img, pose, var):
              [13, 14], [14, 15], [3, 4], [4, 5], [8, 7], [7, 6], [6, 2], [6, 3], [8, 12], [8, 13]]
     # img = np.clip(img*std+mean, 0.0, 1.0)
     img_width, img_height, _ = img.shape
+    pose[:, 0] *= 2
     pose = ((pose + 1) * np.array([img_height, img_width])-1) / 2  # pose ~ [-1,1]
 
     part_line = {}
@@ -71,8 +72,7 @@ def do_detect(test_data, model):
         with torch.no_grad():
             coords, heatmaps, var = model(image)
 
-        result = None
-        # result = display_pose(origin_image[0], coords[0], var[0])
+        result = display_pose(origin_image[0], coords[0], var[0])
 
         return (result, coords[0])
 
@@ -97,6 +97,7 @@ if __name__ == '__main__':
 
     test_dataset = VideoDataset(args.test_dir)
     fps, frame_size = test_dataset.video_info()
+    print(fps, frame_size)
     data_writer = DataWriter(args.save_video, args.save_path, fps=fps, frame_size=frame_size)
 
     test_dataloader = DataLoader(test_dataset, batch_size=1, shuffle=False)

@@ -134,7 +134,7 @@ def prepare_cutting_dataloaders(video_dir):
     print('Cutting', cut_idx, 'Started')
     for i in range(data_len):
         success, frame = stream.read()
-        if i >= lower_bound and i % 5 == 0:
+        if i >= lower_bound and (i - 1) % 5 == 0:
             frame_group.append(frame)
         if i >= upper_bound:
             frame_groups.append(frame_group)
@@ -203,7 +203,7 @@ class VideoCuttingDataset(Dataset):
 
 class DataWriter(object):
     def __init__(self, save_video=False, save_path='./result',
-                 fourcc=cv2.VideoWriter_fourcc(*'XVID'), fps=25, frame_size=(256, 256)):
+                 fourcc=cv2.VideoWriter_fourcc(*'XVID'), fps=25, frame_size=(720, 1280)):
         if save_video:
             save_path = os.path.join(save_path, 'res.avi')
             self.stream = cv2.VideoWriter(save_path, fourcc, fps, frame_size)
@@ -218,4 +218,4 @@ class DataWriter(object):
 
     def stop(self):
         self.stream.release()
-        # print(self.final_result)
+        print(len(self.final_result))
