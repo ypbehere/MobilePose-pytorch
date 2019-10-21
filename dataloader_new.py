@@ -112,8 +112,7 @@ cut_seconds = [(0, 5),  # 1_1
                (585, 590),  # 6_2
                (675, 685),  # 7_1
                (695, 705),  # 7_2
-               (765, 770),  # 8_1
-               (800, 805)]  # 8_2
+               (765, 770)]  # 8_1
 
 
 def prepare_cutting_dataloaders(video_dir):
@@ -140,7 +139,7 @@ def prepare_cutting_dataloaders(video_dir):
             frame_groups.append(frame_group)
             frame_group = []
             cut_idx += 1
-            if cut_idx == 14:
+            if cut_idx == 13:
                 print('Cutting finished')
                 break
 
@@ -155,7 +154,7 @@ def prepare_cutting_dataloaders(video_dir):
     for frame_group in frame_groups:
         frame_dataset = VideoCuttingDataset(frame_group)
         total_frames += frame_dataset.num_frames
-        frame_dataloader = DataLoader(frame_dataset, batch_size=1, shuffle=False)
+        frame_dataloader = DataLoader(frame_dataset, batch_size=2, shuffle=False)
         frame_dataloaders.append(frame_dataloader)
 
     print('Finish Loading, {} frames in total'.format(total_frames))

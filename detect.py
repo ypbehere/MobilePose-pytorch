@@ -80,8 +80,8 @@ def do_detect(test_data, model):
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description='MobilePose Demo')
-    parser.add_argument('--model', type=str, required=True, default='')
-    parser.add_argument('--t7', type=str, required=True, default='')
+    parser.add_argument('--model', type=str, default='resnet18')
+    parser.add_argument('--t7', type=str, default='models/resnet18_224_adam_best.t7')
     parser.add_argument('--test_dir', type=str, required=True, default='')
     parser.add_argument('--save_video', action='store_true')
     parser.add_argument('--save_path', type=str, default='./result')

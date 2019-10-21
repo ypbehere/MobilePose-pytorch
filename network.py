@@ -61,4 +61,4 @@ class CoordRegressionNetwork(nn.Module):
         # 4. Calculate the coordinates
         coords = dsnt(heatmaps)
 
-        return coords, heatmaps, var
+        return coords, var
